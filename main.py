@@ -39,8 +39,10 @@ def training_loop(n_epochs, optimizer, params, train_t_u, val_t_u, train_t_c, va
         train_t_p = model(train_t_u, *params)
         train_loss = loss_fn(train_t_p, train_t_c)
 
-        val_t_p = model(val_t_u, *params)
-        val_loss = loss_fn(val_t_p, val_t_c)
+        with torch.no_grad(): # 콘텍스트 관리자
+            val_t_p = model(val_t_u, *params)
+            val_loss = loss_fn(val_t_p, val_t_c)
+            assert val_loss.requires_grad == False # 이 블록 내에서 rquires_grad가 False로 설정을 강제한다는 상황을 점검한다
 
         optimizer.zero_grad()
         train_loss.backward() # 검증 데이터로는 학습하면 안 되므로 val_loss.backward()가 없다
