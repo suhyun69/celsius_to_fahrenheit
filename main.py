@@ -1,18 +1,12 @@
 import torch
 from matplotlib import pyplot as plt
 import torch.optim as optim
+import torch.nn as nn
 
 t_c = [0.5, 14.0, 15.0, 28.0, 11.0, 8.0, 3.0, -4.0, 6.0, 13.0, 21.0]
 t_u = [35.7, 55.9, 58.2, 81.9, 56.3, 48.9, 33.9, 21.8, 48.4, 60.4, 68.4]
-t_c = torch.tensor(t_c)
-t_u = torch.tensor(t_u)
-
-def model(t_u, w, b):
-    return w * t_u + b
-
-def loss_fn(t_p, t_c):
-    squared_diffs = (t_p - t_c)**2
-    return squared_diffs.mean()
+t_c = torch.tensor(t_c).unsqueeze(1) # 1번 축에 여분의 차원을 추가한다
+t_u = torch.tensor(t_u).unsqueeze(1) # 1번 축에 여분의 차원을 추가한다
 
 # 데이터셋 나누기
 n_samples = t_u.shape[0]
@@ -33,14 +27,14 @@ val_t_c = t_c[val_indices]
 train_t_un = 0.1 * train_t_u
 val_t_un = 0.1 * val_t_u
 
-def training_loop(n_epochs, optimizer, params, train_t_u, val_t_u, train_t_c, val_t_c):
+def training_loop(n_epochs, optimizer, model, loss_fn, train_t_u, val_t_u, train_t_c, val_t_c):
     for epoch in range(1, n_epochs + 1):
 
-        train_t_p = model(train_t_u, *params)
+        train_t_p = model(train_t_u)
         train_loss = loss_fn(train_t_p, train_t_c)
 
         with torch.no_grad(): # 콘텍스트 관리자
-            val_t_p = model(val_t_u, *params)
+            val_t_p = model(val_t_u)
             val_loss = loss_fn(val_t_p, val_t_c)
             assert val_loss.requires_grad == False # 이 블록 내에서 rquires_grad가 False로 설정을 강제한다는 상황을 점검한다
 
@@ -48,28 +42,30 @@ def training_loop(n_epochs, optimizer, params, train_t_u, val_t_u, train_t_c, va
         train_loss.backward() # 검증 데이터로는 학습하면 안 되므로 val_loss.backward()가 없다
         optimizer.step()
 
-        if epoch <= 3 or epoch % 500 == 0:
+        if epoch == 1 or epoch % 1000 == 0:
             print(f"Epoch {epoch}, Training loss {train_loss.item():.4f},"
                   f" Validation loss {val_loss.item():.4f}")
 
-    return params
+    # return params
     # print(params)
 
-# 경사 하강(SGD) 옵티마이저 사용하기
-params = torch.tensor([1.0, 0.0], requires_grad=True)
-learning_Rate = 1e-2
-optimizer = optim.SGD([params], lr=learning_Rate)
+# 직접 작성한 모델을 nn.Linear(1,1)로 바꾼 후 옵티마이저에 선형 모델 파라미터를 전달한다
+linear_model = nn.Linear(1,1)
+optimizer = optim.SGD(linear_model.parameters(), lr=1e-2)
 
-params = training_loop(
-    n_epochs=5000,
+training_loop(
+    n_epochs=3000,
     optimizer=optimizer,
-    params=params, # 이 값이 optimizer에서 사용한 params와 동일하지 않으면, 옵티마이저는 모델이 사용하는 파라미터가 어떤 것인지 알 수 없다
+    model=linear_model,
+    loss_fn=nn.MSELoss(), # 이제 직접 만든 손실 함수는 사용하지 않는다
     train_t_u=train_t_un,
     val_t_u=val_t_un,
     train_t_c=train_t_c,
     val_t_c=val_t_c
 )
-print(params)
+# print(params)
+print(linear_model.weight)
+print(linear_model.bias)
 
 '''
 t_p = model(t_un, *params)  # 단위를 모르는 값을 정규화하여 훈련하고 있음. 인자도 언패킹하고 있음
