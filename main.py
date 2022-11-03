@@ -2,6 +2,7 @@ import torch
 from matplotlib import pyplot as plt
 import torch.optim as optim
 import torch.nn as nn
+from collections import OrderedDict
 
 t_c = [0.5, 14.0, 15.0, 28.0, 11.0, 8.0, 3.0, -4.0, 6.0, 13.0, 21.0]
 t_u = [35.7, 55.9, 58.2, 81.9, 56.3, 48.9, 33.9, 21.8, 48.4, 60.4, 68.4]
@@ -49,31 +50,34 @@ def training_loop(n_epochs, optimizer, model, loss_fn, train_t_u, val_t_u, train
     # return params
     # print(params)
 
-# 직접 작성한 모델을 nn.Linear(1,1)로 바꾼 후 옵티마이저에 선형 모델 파라미터를 전달한다
-linear_model = nn.Linear(1,1)
-optimizer = optim.SGD(linear_model.parameters(), lr=1e-2)
+seq_model = nn.Sequential(OrderedDict([
+    ('hidden_linear', nn.Linear(1, 8)),
+    ('hidden_activation', nn.Tanh()),
+    ('output_linear', nn.Linear(8, 1))
+]))
+optimizer = optim.SGD(seq_model.parameters(), lr=1e-3) # 안정성을 위해 학습률을 조금 떨어뜨렸다
 
 training_loop(
-    n_epochs=3000,
+    n_epochs=5000,
     optimizer=optimizer,
-    model=linear_model,
-    loss_fn=nn.MSELoss(), # 이제 직접 만든 손실 함수는 사용하지 않는다
+    model=seq_model,
+    loss_fn=nn.MSELoss(),
     train_t_u=train_t_un,
     val_t_u=val_t_un,
     train_t_c=train_t_c,
     val_t_c=val_t_c
 )
 # print(params)
-print(linear_model.weight)
-print(linear_model.bias)
+print('output', seq_model(val_t_un))
+print('answer', val_t_c)
+print('hidden', seq_model.hidden_linear.weight.grad)
 
-'''
-t_p = model(t_un, *params)  # 단위를 모르는 값을 정규화하여 훈련하고 있음. 인자도 언패킹하고 있음
+t_range = torch.arange(20., 90.).unsqueeze(1)
 
 fig = plt.figure(dpi=600)
-plt.xlabel("Temperature (°Fahrenheit)")
-plt.ylabel("Temperature (°Celsius)")
-plt.plot(t_u.numpy(), t_p.detach().numpy()) # 알 수 없는 원본 값을 그려보고 있음
+plt.xlabel("Fahrenheit")
+plt.ylabel("Celsius")
 plt.plot(t_u.numpy(), t_c.numpy(), 'o')
+plt.plot(t_range.numpy(), seq_model(0.1 * t_range).detach().numpy(), 'c-')
+plt.plot(t_u.numpy(), seq_model(0.1 * t_u).detach().numpy(), 'kx')
 plt.savefig("temp_unknown_plot.png", format="png")  # bookskip
-'''
