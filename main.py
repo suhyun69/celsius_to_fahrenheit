@@ -14,23 +14,44 @@ def loss_fn(t_p, t_c):
     squared_diffs = (t_p - t_c)**2
     return squared_diffs.mean()
 
-def training_loop(n_epochs, optimizer, params, t_u, t_c):
+# 데이터셋 나누기
+n_samples = t_u.shape[0]
+n_val = int(0.2 * n_samples)
+
+shuffled_indices = torch.randperm(n_samples)
+
+train_indices = shuffled_indices[:-n_val]
+val_indices = shuffled_indices[-n_val]
+
+# 이제 인덱스 텐서를 얻었으니, 데이터 텐서로부터 훈련셋과 검증셋을 만들어보자
+train_t_u = t_u[train_indices]
+train_t_c = t_c[train_indices]
+
+val_t_u = t_u[val_indices]
+val_t_c = t_c[val_indices]
+
+train_t_un = 0.1 * train_t_u
+val_t_un = 0.1 * val_t_u
+
+def training_loop(n_epochs, optimizer, params, train_t_u, val_t_u, train_t_c, val_t_c):
     for epoch in range(1, n_epochs + 1):
 
-        t_p = model(t_u, *params)
-        loss = loss_fn(t_p, t_c)
+        train_t_p = model(train_t_u, *params)
+        train_loss = loss_fn(train_t_p, train_t_c)
+
+        val_t_p = model(val_t_u, *params)
+        val_loss = loss_fn(val_t_p, val_t_c)
 
         optimizer.zero_grad()
-        loss.backward()
+        train_loss.backward() # 검증 데이터로는 학습하면 안 되므로 val_loss.backward()가 없다
         optimizer.step()
 
-        if epoch % 500 == 0:
-            print('Epoch %d, Loss %f' % (epoch, float(loss)))
+        if epoch <= 3 or epoch % 500 == 0:
+            print(f"Epoch {epoch}, Training loss {train_loss.item():.4f},"
+                  f" Validation loss {val_loss.item():.4f}")
 
     return params
     # print(params)
-
-t_un = 0.1 * t_u
 
 # 경사 하강(SGD) 옵티마이저 사용하기
 params = torch.tensor([1.0, 0.0], requires_grad=True)
@@ -41,8 +62,10 @@ params = training_loop(
     n_epochs=5000,
     optimizer=optimizer,
     params=params, # 이 값이 optimizer에서 사용한 params와 동일하지 않으면, 옵티마이저는 모델이 사용하는 파라미터가 어떤 것인지 알 수 없다
-    t_u=t_un,
-    t_c=t_c
+    train_t_u=train_t_un,
+    val_t_u=val_t_un,
+    train_t_c=train_t_c,
+    val_t_c=val_t_c
 )
 print(params)
 
