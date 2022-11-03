@@ -13,60 +13,21 @@ def loss_fn(t_p, t_c):
     squared_diffs = (t_p - t_c)**2
     return squared_diffs.mean()
 
-w = torch.ones(())
-b = torch.zeros(())
-
-t_p = model(t_u, w, b)
-# print(t_p)
-
-loss = loss_fn(t_p, t_c)
-# print(loss)
-
-delta = 0.1
-loss_rate_of_change_w = (loss_fn(model(t_u, w + delta, b), t_c) - loss_fn(model(t_u, w - delta, b), t_c)) / (2.0 * delta)
-learning_rate = 1e-2
-w = w - learning_rate * loss_rate_of_change_w
-
-loss_rate_of_change_b = (loss_fn(model(t_u, w, b + delta), t_c) - loss_fn(model(t_u, w, b - delta), t_c)) / (2.0 * delta)
-b = b - learning_rate * loss_rate_of_change_b
-
-def dloss_fn(t_p, t_c):
-    dsq_diffs = 2 * (t_p - t_c) / t_p.size(0)
-    return dsq_diffs
-
-def dmodel_dw(t_u, w, b):
-    return t_u
-
-def dmodel_db(t_u, w, b):
-    return 1.0
-
-def grad_fn(t_u, t_c, t_p, w, b):
-    dloss_dtp = dloss_fn(t_p, t_c)
-    dloss_dw = dloss_dtp * dmodel_dw(t_u, w, b)
-    dloss_db = dloss_dtp * dmodel_db(t_u, w, b)
-    return torch.stack([dloss_dw.sum(), dloss_db.sum()])
-
-
-def training_loop(n_epochs, learning_rate, params, t_u, t_c, print_params=True):
+def training_loop(n_epochs, learning_rate, params, t_u, t_c):
     for epoch in range(1, n_epochs + 1):
-        w, b = params
 
-        t_p = model(t_u, w, b)  # 순방향 전달
+        if params.grad is not None: # loss.backward() 호출 전 아무 위치에나 두면 된다.
+            params.grad.zero_()
+
+        t_p = model(t_u, *params)
         loss = loss_fn(t_p, t_c)
-        grad = grad_fn(t_u, t_c, t_p, w, b)  # 역방향 전달
+        loss.backward()
 
-        params = params - learning_rate * grad
+        with torch.no_grad():
+            params -= learning_rate * params.grad
 
-        if epoch in {1, 2, 3, 10, 11, 99, 100, 4000, 5000}:  #
+        if epoch % 500 == 0:
             print('Epoch %d, Loss %f' % (epoch, float(loss)))
-            if print_params:
-                print('    Params:', params)
-                print('    Grad:  ', grad)
-        if epoch in {4, 12, 101}:
-            print('...')
-
-        if not torch.isfinite(loss).all():
-            break  # <3>
 
     return params
     # print(params)
@@ -76,13 +37,13 @@ t_un = 0.1 * t_u
 params = training_loop(
     n_epochs=5000,
     learning_rate=1e-2,
-    params=torch.tensor([1.0, 0.0]),
-    t_u=t_un, # t_u 대신, 범위를 조정한 t_un을 사용
-    t_c=t_c,
-    print_params=False
+    params=torch.tensor([1.0, 0.0], requires_grad=True), # requires_grad=True가 핵심
+    t_u=t_un, # 여기서도 t_u 대신 정규화된 t_un을 사용
+    t_c=t_c
 )
 print(params)
 
+'''
 t_p = model(t_un, *params)  # 단위를 모르는 값을 정규화하여 훈련하고 있음. 인자도 언패킹하고 있음
 
 fig = plt.figure(dpi=600)
@@ -91,3 +52,4 @@ plt.ylabel("Temperature (°Celsius)")
 plt.plot(t_u.numpy(), t_p.detach().numpy()) # 알 수 없는 원본 값을 그려보고 있음
 plt.plot(t_u.numpy(), t_c.numpy(), 'o')
 plt.savefig("temp_unknown_plot.png", format="png")  # bookskip
+'''
