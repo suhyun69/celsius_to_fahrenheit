@@ -70,10 +70,13 @@ def training_loop(n_epochs, learning_rate, params, t_u, t_c, print_params=True):
     # return params
     print(params)
 
+t_un = 0.1 * t_u
+
 training_loop(
-    n_epochs=100,
-    learning_rate=1e-4,
+    n_epochs=5000,
+    learning_rate=1e-2,
     params=torch.tensor([1.0, 0.0]),
-    t_u=t_u,
-    t_c=t_c
+    t_u=t_un, # t_u 대신, 범위를 조정한 t_un을 사용
+    t_c=t_c,
+    print_params=False
 )
