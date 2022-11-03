@@ -72,7 +72,7 @@ def training_loop(n_epochs, learning_rate, params, t_u, t_c, print_params=True):
 
 training_loop(
     n_epochs=100,
-    learning_rate=1e-2,
+    learning_rate=1e-4,
     params=torch.tensor([1.0, 0.0]),
     t_u=t_u,
     t_c=t_c
