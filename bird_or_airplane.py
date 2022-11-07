@@ -2,6 +2,7 @@ import torch
 from torchvision import datasets, transforms
 from matplotlib import pyplot as plt
 import torch.nn as nn
+import torch.optim as optim
 
 data_path = '../data-unversioned/p1ch7/'
 '''
@@ -83,11 +84,12 @@ cifar2_val = [(img, label_map[label])
 
 n_out = 2
 model = nn.Sequential(
-    nn.Linear(3072, 512), # 3072: 입력 피처(32x32x3=3072), 512: 은닉층 크기
+    nn.Linear(3072, 512),  # 3072: 입력 피처(32x32x3=3072), 512: 은닉층 크기
     nn.Tanh(),
-    nn.Linear(512, n_out), # 512: 은닉층 크기, n_out: 출력 클래스
-    nn.Softmax(dim=1)) # 모델의 끝에 소프트맥스를 추가하여 신경망이 확률을 출력하도록.
+    nn.Linear(512, n_out),  # 512: 은닉층 크기, n_out: 출력 클래스
+    nn.LogSoftmax(dim=1))  # nn.LogSoftmax를 출력 모델로 사용.
 
+'''
 img, _ = cifar2[0]
 img_batch = img.view(-1).unsqueeze(0)
 out = model(img_batch)
@@ -95,3 +97,22 @@ print(out)
 
 _, index = torch.max(out, dim=1)
 print(index)
+'''
+
+learning_rate = 1e-2
+
+optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+loss_fn = nn.NLLLoss()
+
+n_epochs = 100
+
+for epoch in range(n_epochs):
+    for img, label in cifar2:
+        out = model(img.view(-1).unsqueeze(0))
+        loss = loss_fn(out, torch.tensor([label]))
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    print("Epoch: %d, Loss: %f" % (epoch, float(loss)))
