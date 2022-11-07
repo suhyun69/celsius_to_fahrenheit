@@ -82,22 +82,16 @@ cifar2_val = [(img, label_map[label])
               for img, label in cifar10_val
               if label in [0, 2]]
 
-n_out = 2
+train_loader = torch.utils.data.DataLoader(cifar2
+                                           , batch_size=64,
+                                           shuffle=True)
+
 model = nn.Sequential(
-    nn.Linear(3072, 512),  # 3072: 입력 피처(32x32x3=3072), 512: 은닉층 크기
-    nn.Tanh(),
-    nn.Linear(512, n_out),  # 512: 은닉층 크기, n_out: 출력 클래스
-    nn.LogSoftmax(dim=1))  # nn.LogSoftmax를 출력 모델로 사용.
+            nn.Linear(3072, 512),
+            nn.Tanh(),
+            nn.Linear(512, 2),
+            nn.LogSoftmax(dim=1))
 
-'''
-img, _ = cifar2[0]
-img_batch = img.view(-1).unsqueeze(0)
-out = model(img_batch)
-print(out)
-
-_, index = torch.max(out, dim=1)
-print(index)
-'''
 
 learning_rate = 1e-2
 
@@ -107,12 +101,29 @@ loss_fn = nn.NLLLoss()
 n_epochs = 100
 
 for epoch in range(n_epochs):
-    for img, label in cifar2:
-        out = model(img.view(-1).unsqueeze(0))
-        loss = loss_fn(out, torch.tensor([label]))
+    for imgs, labels in train_loader:
+        outputs = model(imgs.view(imgs.shape[0], -1))
+        loss = loss_fn(outputs, labels)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
     print("Epoch: %d, Loss: %f" % (epoch, float(loss)))
+
+
+val_loader = torch.utils.data.DataLoader(cifar2_val
+                                         , batch_size=64,
+                                         shuffle=False)
+
+correct = 0
+total = 0
+
+with torch.no_grad():
+    for imgs, labels in val_loader:
+        outputs = model(imgs.view(imgs.shape[0], -1))
+        _, predicted = torch.max(outputs, dim=1)
+        total += labels.shape[0]
+        correct += int((predicted == labels).sum())
+
+print("Accuracy: %f" % (correct / total))
