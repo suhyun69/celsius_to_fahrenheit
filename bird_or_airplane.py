@@ -1,6 +1,7 @@
 import torch
 from torchvision import datasets, transforms
 from matplotlib import pyplot as plt
+import torch.nn as nn
 
 data_path = '../data-unversioned/p1ch7/'
 '''
@@ -79,3 +80,18 @@ cifar2 = [(img, label_map[label])
 cifar2_val = [(img, label_map[label])
               for img, label in cifar10_val
               if label in [0, 2]]
+
+n_out = 2
+model = nn.Sequential(
+    nn.Linear(3072, 512), # 3072: 입력 피처(32x32x3=3072), 512: 은닉층 크기
+    nn.Tanh(),
+    nn.Linear(512, n_out), # 512: 은닉층 크기, n_out: 출력 클래스
+    nn.Softmax(dim=1)) # 모델의 끝에 소프트맥스를 추가하여 신경망이 확률을 출력하도록.
+
+img, _ = cifar2[0]
+img_batch = img.view(-1).unsqueeze(0)
+out = model(img_batch)
+print(out)
+
+_, index = torch.max(out, dim=1)
+print(index)
